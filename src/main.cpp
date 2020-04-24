@@ -2,6 +2,7 @@
 #include <QCoreApplication>
 
 #include <QColor>
+#include <QFileInfo>
 #include <utility>
 #include <cmath>
 #include <memory>
@@ -120,6 +121,20 @@ class WriteStyle : public svgdom::Visitor {
 	}
 };
 
+class VisitorRemoveColor : public svgdom::Visitor {
+	public:
+		void defaultVisit(svgdom::Element& e) override{
+			//Check if this is a styleable element
+			auto style = dynamic_cast<svgdom::Styleable*>( &e );
+			if (style){
+				//Check if fill is defined and is not an url
+				auto key_it = style->styles.find(svgdom::StyleProperty_e::FILL  );
+				if (key_it != style->styles.end() && key_it->second.isNormal())
+					key_it->second = svgdom::StyleValue::parsePaint("#000000");
+			}
+		}
+};
+
 class VisitorTest : public svgdom::Visitor {
 	public:
 		std::map<std::string,std::string> replace_color;
@@ -188,8 +203,11 @@ int main(int argc, char* argv[]){
 		return -1;
 	}
 	
+	auto input_path = args[1];
+	auto output_path = QFileInfo(input_path).baseName() + ".png";
+	
 	json js;
-	std::ifstream(args[1].toUtf8().constData()) >> js;
+	std::ifstream(input_path.toUtf8().constData()) >> js;
 	
 	auto img_base = loadImage( js["base"].get<std::string>().c_str() );
 	
@@ -219,6 +237,10 @@ int main(int argc, char* argv[]){
 	auto img_colors = fromSvg( svgren::render(*dom) );
 	saveImage( "render.png", img_colors );
 	
+	//Remove colors from non-defined ones
+	VisitorRemoveColor remove_color_visitor;
+	dom->accept( remove_color_visitor );
+	
 	for(auto over : js["overrides"] ){
 		auto id = over["id"].get<std::string>();
 		std::cout << "Overriding: " <<  id << std::endl;
@@ -228,7 +250,7 @@ int main(int argc, char* argv[]){
 		writer.match_id = id;
 		dom->accept(writer);
 		auto img_change = fromSvg( svgren::render(*dom) );
-		//saveImage( ("test" + id + ".png").c_str(), img_change );
+		//saveImage( ("layer" + id + ".png").c_str(), img_change );
 		
 		gamma    .update( over, img_change );
 		sat_boost.update( over, img_change );
@@ -258,6 +280,6 @@ int main(int argc, char* argv[]){
 			out.setPixel( ix, iy, Color::Hsv(h, s, v, a).rgba() );
 		}
 	
-	out.save( "output.png" );
+	out.save( output_path );
 	return 0;
 }
