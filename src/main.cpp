@@ -234,8 +234,11 @@ int main(int argc, char* argv[]){
 	test.replace = true;
 	dom->accept(test);
 	
-	auto img_colors = fromSvg( svgren::render(*dom) );
-	saveImage( "render.png", img_colors );
+	svgren::parameters render_para;
+	render_para.width_request = img_base.width();
+	render_para.height_request = img_base.height();
+	auto img_colors = fromSvg( svgren::render(*dom, render_para) );
+	//saveImage( "render.png", img_colors );
 	
 	//Remove colors from non-defined ones
 	VisitorRemoveColor remove_color_visitor;
@@ -249,7 +252,7 @@ int main(int argc, char* argv[]){
 		writer.write = true;
 		writer.match_id = id;
 		dom->accept(writer);
-		auto img_change = fromSvg( svgren::render(*dom) );
+		auto img_change = fromSvg( svgren::render(*dom, render_para) );
 		//saveImage( ("layer" + id + ".png").c_str(), img_change );
 		
 		gamma    .update( over, img_change );
